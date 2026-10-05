@@ -1,0 +1,39 @@
+experiment:
+  name: "ec_vs_replication_v1"
+  seed: 42
+
+file:
+  path: "./data/test.bin"
+  sizes_mb: [1, 10, 50]
+
+erasure_coding:
+  method: "reed_solomon"
+  data_fragments: 4
+  parity_fragments: 2
+
+storage:
+  node_count: 6
+  placement: "round_robin"
+
+failure:
+  failed_nodes: [2]
+
+network:
+  bandwidth_mbps: 100
+  latency_ms: 10
+  timeout_seconds: 30
+
+replication:
+  factor: 2
+
+metrics:
+  record_encoding_time: true
+  record_recovery_time: true
+  record_bytes_transferred: true
+  record_cpu: true
+  record_storage: true
+
+logging:
+  save_config: true
+  save_node_events: true
+  save_checksums: true

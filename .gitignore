@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+coverage.xml
+htmlcov/
+*.egg-info/
+.DS_Store
+
+# Exclude the planning docs used only for local agent workflow
+0[0-8]_*.md
+
+# Local generated data
+runs/
+data/
