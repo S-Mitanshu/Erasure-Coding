@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Iterable, List, Sequence, Union
 
+from erasure_storage.codec.rs_codec import CodecType
 from erasure_storage.common.checksum import sha256_hex
 from erasure_storage.coordinator.coordinator import Coordinator
 from erasure_storage.recovery.recovery_manager import RecoveryManager
@@ -23,10 +24,17 @@ def run_experiment(
     node_count: int = 6,
     failed_nodes: Sequence[int] | Iterable[int] | None = None,
     output_dir: Union[str, Path, None] = None,
+    codec_type: Union[CodecType, str] = CodecType.REED_SOLOMON,
 ) -> dict:
-    file_id = None
     failed = _normalize_failed_nodes(failed_nodes)
-    coordinator = Coordinator(data_shards=data_shards, parity_shards=parity_shards, node_count=node_count)
+    actual_codec = codec_type if isinstance(codec_type, CodecType) else CodecType(str(codec_type).lower())
+
+    coordinator = Coordinator(
+        data_shards=data_shards,
+        parity_shards=parity_shards,
+        node_count=node_count,
+        codec_type=actual_codec,
+    )
     file_id = coordinator.ingest_file(payload)
     placement = coordinator.assign_fragments(file_id)
 
@@ -34,10 +42,16 @@ def run_experiment(
     node_store.store_fragments(placement)
     node_store.fail_nodes(failed)
 
-    manager = RecoveryManager(node_store)
+    manager = RecoveryManager(
+        node_store=node_store,
+        data_shards=data_shards,
+        parity_shards=parity_shards,
+        codec_type=actual_codec,
+    )
     recovered = manager.recover_file(file_id, payload)
     report = {
         "file_id": file_id,
+        "codec": actual_codec.value,
         "input_size_bytes": len(payload),
         "original_hash": coordinator.file_checksums[file_id],
         "recovered_hash": sha256_hex(recovered),
@@ -64,6 +78,7 @@ def run_experiment(
         md_path.write_text(
             "# Experiment Report\n\n"
             + f"- File ID: {report['file_id']}\n"
+            + f"- Codec: {report['codec']}\n"
             + f"- Input size: {report['input_size_bytes']} bytes\n"
             + f"- Data shards: {report['data_shards']}\n"
             + f"- Parity shards: {report['parity_shards']}\n"

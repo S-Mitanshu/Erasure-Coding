@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Union
 
 from erasure_storage.common.checksum import sha256_hex
-from erasure_storage.codec.rs_codec import ReedSolomonCodec
+from erasure_storage.codec.rs_codec import CodecType, get_codec, BaseCodec
 
 
 @dataclass
@@ -19,11 +19,18 @@ class FragmentRecord:
 
 
 class Coordinator:
-    def __init__(self, data_shards: int, parity_shards: int, node_count: int):
+    def __init__(
+        self,
+        data_shards: int,
+        parity_shards: int,
+        node_count: int,
+        codec_type: Union[CodecType, str] = CodecType.REED_SOLOMON,
+    ):
         self.data_shards = data_shards
         self.parity_shards = parity_shards
         self.node_count = node_count
-        self.codec = ReedSolomonCodec(data_shards, parity_shards)
+        self.codec_type = codec_type if isinstance(codec_type, CodecType) else CodecType(str(codec_type).lower())
+        self.codec: BaseCodec = get_codec(self.codec_type, data_shards, parity_shards)
         self.file_checksums: Dict[str, str] = {}
         self.file_payloads: Dict[str, bytes] = {}
         self.file_fragments: Dict[str, List[FragmentRecord]] = {}
