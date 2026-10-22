@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import time
 import uuid
 from dataclasses import dataclass
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
+from erasure_storage.codec.rs_codec import BaseCodec, CodecType, get_codec
 from erasure_storage.common.checksum import sha256_hex
-from erasure_storage.codec.rs_codec import CodecType, get_codec, BaseCodec
+from erasure_storage.metrics.collector import MetricsCollector
 
 
 @dataclass
@@ -41,14 +43,20 @@ class Coordinator:
         self.file_checksums[file_id] = sha256_hex(payload)
         return file_id
 
-    def assign_fragments(self, file_id: str) -> List[FragmentRecord]:
+    def assign_fragments(
+        self,
+        file_id: str,
+        collector: Optional[MetricsCollector] = None,
+    ) -> List[FragmentRecord]:
         if file_id not in self.file_payloads:
             raise KeyError(f"Unknown file ID: {file_id}")
 
         payload = self.file_payloads[file_id]
+        start_time = time.perf_counter()
         fragments = self.codec.encode_data(payload)
-        records: List[FragmentRecord] = []
+        encoding_duration = time.perf_counter() - start_time
 
+        records: List[FragmentRecord] = []
         for index, chunk in enumerate(fragments):
             node_id = index % self.node_count
             fragment_type = "data" if index < self.data_shards else "parity"
@@ -61,6 +69,14 @@ class Coordinator:
                     checksum=sha256_hex(chunk),
                     data=chunk,
                 )
+            )
+
+        total_stored = sum(len(c) for c in fragments)
+        if collector is not None:
+            collector.record_manual(
+                phase_name="encoding",
+                duration_s=encoding_duration,
+                bytes_transferred=total_stored,
             )
 
         self.file_fragments[file_id] = records
