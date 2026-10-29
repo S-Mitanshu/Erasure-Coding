@@ -1,39 +1,57 @@
 experiment:
-  name: "ec_vs_replication_v1"
+  name: "erasure_coding_vs_replication_scaleout"
   seed: 42
 
-file:
-  path: "./data/test.bin"
-  sizes_mb: [1, 10, 50]
+workload:
+  sizes_bytes:
+    - 102400       # 100 KB
+    - 512000       # 500 KB
+    - 1048576      # 1 MB
+    - 5242880      # 5 MB
+    - 10485760     # 10 MB
+    - 20971520     # 20 MB
 
-erasure_coding:
-  method: "reed_solomon"
-  data_fragments: 4
-  parity_fragments: 2
+schemes:
+  - name: "rs_4_2"
+    type: "reed_solomon"
+    data_shards: 4
+    parity_shards: 2
+    node_count: 6
 
-storage:
-  node_count: 6
-  placement: "round_robin"
+  - name: "rs_8_2"
+    type: "reed_solomon"
+    data_shards: 8
+    parity_shards: 2
+    node_count: 10
 
-failure:
-  failed_nodes: [2]
+  - name: "rs_8_4"
+    type: "reed_solomon"
+    data_shards: 8
+    parity_shards: 4
+    node_count: 12
 
-network:
-  bandwidth_mbps: 100
-  latency_ms: 10
-  timeout_seconds: 30
+  - name: "xor_4_2"
+    type: "xor"
+    data_shards: 4
+    parity_shards: 2
+    node_count: 6
 
-replication:
-  factor: 2
+  - name: "replication_3x"
+    type: "replication"
+    replication_factor: 3
+    node_count: 6
+
+failure_scenarios:
+  - count: 0
+    description: "Healthy cluster (baseline reads)"
+  - count: 1
+    description: "Single node failure (most common operational case)"
+  - count: 2
+    description: "Concurrent dual node failure"
 
 metrics:
   record_encoding_time: true
   record_recovery_time: true
   record_bytes_transferred: true
-  record_cpu: true
-  record_storage: true
-
-logging:
-  save_config: true
-  save_node_events: true
-  save_checksums: true
+  record_cpu_percent: true
+  record_memory_peak_mb: true
